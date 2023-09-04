@@ -1,0 +1,6 @@
+[submodule "env-values"]
+	path = env-values
+	url = http://100.100.103.5/devops/helm/env-values.git
+[submodule "helm-values"]
+	path = helm-values
+	url = https://github.com/kyh0703/helm-values.git

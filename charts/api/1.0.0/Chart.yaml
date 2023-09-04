@@ -1,0 +1,12 @@
+apiVersion: v2
+appVersion: 1.0.0
+description: Api Quant
+icon: https://cdn-icons-png.flaticon.com/512/217/217887.png
+keywords:
+  - quant
+maintainers:
+  - name: kimyeonho
+    email: kyh0703@nate.co.kr
+name: api
+type: application
+version: 1.0.0

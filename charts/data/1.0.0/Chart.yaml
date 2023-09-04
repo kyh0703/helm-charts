@@ -1,0 +1,7 @@
+apiVersion: v2
+appVersion: 1.0.0
+name: data
+description: A service that notifies the changed data of MongoDB to the service.
+icon: https://u7.uidownload.com/vector/75/26/vector-call-icon-vector-eps-ai.jpg
+type: application
+version: 1.0.0

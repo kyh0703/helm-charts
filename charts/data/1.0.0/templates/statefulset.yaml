@@ -1,0 +1,65 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "svc.name" . }}
+  labels:
+    {{- include "svc.labels" . | nindent 4 }}
+spec:
+  serviceName: {{ include "svc.name" . }}
+  replicas: {{ .Values.app.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "svc.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      generateName: {{ include "svc.name" . }}-
+      labels:
+        {{- include "svc.selectorLabels" . | nindent 8 }}
+        version: {{ .Chart.AppVersion }}
+    spec:
+      affinity:
+        {{- if .Values.global.nodeAffinity }}
+        nodeAffinity:
+          {{- toYaml .Values.global.nodeAffinity | nindent 10 }}
+        {{- end }}
+        {{- if .Values.podAntiAffinity }}
+        podAntiAffinity:
+          {{- include "svc.podAntiAffinity" . | nindent 10 }}
+        {{- end }}
+      terminationGracePeriodSeconds: 60
+      {{- if .Values.global.registry.pullSecretsName }}
+      imagePullSecrets:
+        - name: {{ .Values.global.registry.pullSecretsName }}
+      {{- end }}
+      containers:
+      - name: {{ include "svc.name" . }}
+        image: "{{ .Values.image.repository }}/{{ .Chart.Name }}:{{ .Values.image.tag }}"
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        ports:
+          - name: grpc
+            containerPort: {{ .Values.app.port.grpc }}
+            protocol: TCP
+          - name: metric
+            containerPort: {{ .Values.app.port.metric }}
+            protocol: TCP
+        {{- if .Values.resources }}
+        resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+        {{- end }}
+        readinessProbe:
+          exec:
+            command: [ "cat", "/tmp/serviceready" ]
+          initialDelaySeconds: 5
+          periodSeconds: 5
+        env:
+          - name: SERVICE_NAME
+            value: {{ include "svc.name" . }}
+          - name: SERVICE_PORT
+            value: {{ .Values.app.port.grpc | quote }}
+        volumeMounts:
+          - name: tz-config
+            mountPath: /etc/localtime
+      volumes:
+        - name: tz-config
+          hostPath:
+            path: /usr/share/zoneinfo/Asia/Seoul

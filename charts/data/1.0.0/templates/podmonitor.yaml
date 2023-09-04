@@ -1,0 +1,17 @@
+{{- if .Values.global.metric.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: {{ include "svc.name" . }}
+  labels:
+    app: {{ include "svc.name" . }}
+spec:
+  selector:
+    matchLabels:
+      {{- include "svc.selectorLabels" . | nindent 6 }}
+  podMetricsEndpoints:
+  - port: metric
+    path: /metrics
+    scheme: http
+    interval: 5s
+{{- end }}

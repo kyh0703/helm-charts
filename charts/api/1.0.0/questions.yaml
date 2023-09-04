@@ -1,0 +1,18 @@
+questions:
+  - variable: defaultImage
+    default: true
+    label: Use Default Image
+    description: '기본 이미지 버전을 사용합니다.'
+    type: boolean
+    group: '컨테이너 이미지'
+    show_subquestion_if: false
+    subquestions:
+      - variable: image.tag
+        default: '1.2.0'
+        description: '콜 서비스 이미지 버전'
+        type: enum
+        label: image tag
+        options:
+          - '1.2.0'
+          - '1.1.0'
+          - '1.0.0'

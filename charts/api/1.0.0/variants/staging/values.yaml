@@ -1,0 +1,25 @@
+app:
+  replicaCount: 1
+  port:
+    grpc: 8080
+    gateway: 80
+resources:
+  requests:
+    cpu: 100m
+    memory: 512Mi
+  limits:
+    cpu: 1000m
+    memory: 1Gi
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 80
+  targetMemoryUtilizationPercentage: 80
+log:
+  output: 'std'
+  level: debug
+image:
+  repository: 127.0.0.1/core
+  pullPolicy: Always
+  tag: 326bc

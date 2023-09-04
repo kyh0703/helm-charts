@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "svc.name" . }}
+  labels:
+    {{- include "svc.labels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  clusterIP: None
+  ports:
+    - name: grpc
+      port: {{ .Values.app.port.grpc }}
+      targetPort: {{ .Values.app.port.grpc }}
+      protocol: TCP
+    - name: gateway
+      port: {{ .Values.app.port.gateway }}
+      targetPort: {{ .Values.app.port.gateway }}
+      protocol: TCP
+  selector:
+    {{- include "svc.selectorLabels" . | nindent 4 }}

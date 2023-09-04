@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: call-cm
+data:
+  PLAY_MENT_TIMEOUT: '60s'
+  RING_WAIN_TIMEOUT: '180s'
+  TRANSACTION_TIMEOUT: '180s'

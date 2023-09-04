@@ -1,0 +1,105 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "svc.name" . }}
+  labels:
+    {{- include "svc.labels" . | nindent 4 }}
+spec:
+  {{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.app.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "svc.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "svc.selectorLabels" . | nindent 8 }}
+        version: {{ .Chart.AppVersion }}
+    spec:
+      affinity:
+        {{- if .Values.global.nodeAffinity }}
+        nodeAffinity:
+          {{- toYaml .Values.global.nodeAffinity | nindent 10 }}
+        {{- end }}
+        {{- if .Values.podAntiAffinity }}
+        podAntiAffinity:
+          {{- include "svc.podAntiAffinity" . | nindent 10 }}
+        {{- end }}
+      {{- if .Values.global.registry.pullSecretsName }}
+      imagePullSecrets:
+        - name: {{ .Values.global.registry.pullSecretsName }}
+      {{- end }}
+      containers:
+      - name: {{ include "svc.name" . }}
+        image: {{ .Values.image.repository }}/{{ .Chart.Name }}:{{ .Values.image.tag }}
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        ports:
+          - name: grpc
+            containerPort: {{ .Values.app.port.grpc }}
+            protocol: TCP
+          - name: gateway
+            containerPort: {{ .Values.app.port.gateway }}
+            protocol: TCP
+          - name: perf
+            containerPort: 6060
+            protocol: TCP
+        resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+        envFrom:
+          - configMapRef:
+              name: call-cm
+        env:
+        - name: MY_POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: MY_POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: MY_POD_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
+        - name: GRPC_PORT
+          value: {{ .Values.app.port.grpc | quote }}
+        - name: BCLOUD_METRIC_PORT
+          value: {{ .Values.app.port.gateway | quote }}
+        - name: GRPC_GATEWAY_PORT
+          value: {{ .Values.app.port.gateway | quote }}
+        - name: BCLOUD_KAFKA_BROKER_URI
+          value: {{ .Values.global.kafka.brokers | quote }}
+        - name: BCLOUD_TRACES_URI
+          value: {{ .Values.global.jaeger.traces | quote }}
+        - name: BCLOUD_QFLOW_SVC_URI
+          value: {{ .Values.global.services.queueflow | quote }}
+        - name: BCLOUD_CALLFLOW_SVC_URI
+          value: {{ .Values.global.services.callflow | quote }}
+        - name: BCLOUD_ARCHDATA_SVC_URI
+          value: {{ .Values.global.services.archdata | quote }}
+        - name: BCLOUD_PRESENCE_SVC_URI
+          value: {{ .Values.global.services.presence | quote }}
+        - name: BCLOUD_REALTIMEDATA_SVC_URI
+          value: {{ .Values.global.services.realtimedata | quote }}
+        - name: BCLOUD_SCE_FLOW_SVC_URI
+          value: {{ .Values.global.services.sceflow | quote }}
+        - name: BCLOUD_TRUNK_SVC_URI
+          value: {{ .Values.global.services.trunksip | quote }}
+        - name: BCLOUD_BOTFLOW_SVC_URI
+          value: {{ .Values.global.services.botflow | quote }}
+        - name: BCLOUD_KMS_SVC_URI
+          value: {{ .Values.global.services.kmsapi | quote }}
+        - name: BCLOUD_RECORD_GATEWAY_SVC_URI
+          value: {{ .Values.global.services.recgw | quote }}
+        - name: BCLOUD_LOG_OUT
+          value: {{ .Values.log.output | quote }}
+        - name: BCLOUD_LOG_LEVEL
+          value: {{ .Values.log.level | quote }}
+        volumeMounts:
+          - name: tz-config
+            mountPath: /etc/localtime
+      volumes:
+        - name: tz-config
+          hostPath:
+            path: /usr/share/zoneinfo/Asia/Seoul

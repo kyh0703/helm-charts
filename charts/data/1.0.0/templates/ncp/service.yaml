@@ -1,0 +1,21 @@
+{{- if eq .Values.global.env "ncp" }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "svc.name" . }}-lb
+  labels:
+    {{- include "svc.labels" . | nindent 4 }}
+  annotations:
+    service.beta.kubernetes.io/ncloud-load-balancer-layer-type: 'nlb'
+    service.beta.kubernetes.io/ncloud-load-balancer-internal: 'true'
+    service.beta.kubernetes.io/ncloud-load-balancer-size: 'SMALL'
+spec:
+  selector:
+    {{- include "svc.selectorLabels" . | nindent 4 }}
+  type: LoadBalancer
+  ports:
+    - name: grpc
+      port: {{ .Values.app.port.grpc }}
+      targetPort: {{ .Values.app.port.grpc }}
+      protocol: TCP
+{{- end }}

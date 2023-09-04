@@ -1,0 +1,167 @@
+pipeline {
+  agent {
+    node {
+      label 'dev-go'
+    }
+  }
+
+  environment {
+    GIT_COMMIT_AUTHOR = get_commit_author()
+    GIT_COMMIT_MSG = get_commit_msg()
+    GIT_CREDS = credentials('gitlab-ci-token-basic-auth')
+    GIT_HASH = GIT_COMMIT.take(7)
+    GIT_BRANCH_TYPE = get_branch_type(env.GIT_BRANCH)
+    BUILD_ENV = get_branch_deployment_environment(env.GIT_BRANCH_TYPE)
+  }
+
+  stages {
+    stage('Configuration') {
+      steps {
+        echo """
+          GIT_BRANCH: ${GIT_BRANCH}
+          GIT_BRANCH_TYPE: ${GIT_BRANCH_TYPE}
+          GIT_COMMIT_AUTHOR: ${GIT_COMMIT_AUTHOR}
+          GIT_COMMIT_MSG: ${GIT_COMMIT_MSG}
+          GIT_HASH: ${GIT_HASH}
+          BUILD_ENV: ${BUILD_ENV}
+        """
+      }
+    }
+
+    stage('Test') {
+      parallel {
+        stage('Test') {
+          steps { sh 'make test' }
+        }
+        stage('Lint') {
+          steps {
+            catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
+              sh 'make lint'
+            }
+          }
+        }
+      }
+    }
+
+    stage('Docker Build') {
+      steps {
+        echo 'Build Docker Image'
+        script {
+          dockerImage = docker.build(
+            "core/call",
+            "--build-arg CI_USER=${GIT_CREDS_USR} --build-arg CI_TOKEN=${GIT_CREDS_PSW} -f build/package/Dockerfile ."
+          )
+        }
+      }
+    }
+
+    stage('Docker Push') {
+      steps {
+        echo 'Push Docker'
+        dir('build/image') {
+          script {
+            docker.withRegistry('https://127.0.0.1', 'docker-registry') {
+              dockerImage.push("${GIT_COMMIT}")
+            }
+          }
+        }
+      }
+    }
+
+    stage('Commit Helm Repository') {
+      steps {
+        git (
+          url: 'http://127.0.0.1/devops/helm/core-charts.git',
+          credentialsId: 'gitlab-ci-token-basic-auth',
+        )
+        sh "ls -al"
+        script {
+          VERSION = sh(script: 'cat charts/call/VERSION', returnStdout: true).trim()
+        }
+        dir ("charts/call/${VERSION}/variants/${BUILD_ENV}") {
+          sh """#!/bin/bash
+            yq -i '.image.tag = "${GIT_COMMIT}"' values.yaml
+            git commit -am '[${GIT_COMMIT_AUTHOR}] ${GIT_COMMIT_MSG}'
+          """
+        }
+      }
+    }
+
+    stage('Push Helm Repository') {
+      steps {
+        withCredentials([
+          gitUsernamePassword(credentialsId: 'gitlab-ci-token-basic-auth')
+        ]) {
+          sh "git push origin master"
+        }
+      }
+    }
+  }
+
+  post {
+    always {
+      junit(
+        allowEmptyResults: true,
+        skipPublishingChecks: true,
+        skipMarkingBuildUnstable: true,
+        testResults: 'build/report/*.xml'
+      )
+      emailext(
+        to: 'kyh0703@bridgetec.co.kr',
+        subject: '${DEFAULT_SUBJECT}',
+        body: '${DEFAULT_CONTENT}'
+      )
+    }
+  }
+}
+
+def get_branch_type(String branch_name) {
+  def dev_pattern = ".*develop"
+  def release_pattern = ".*release/.*"
+  def feature_pattern = ".*feature/.*"
+  def hotfix_pattern = ".*hotfix/.*"
+  def master_pattern = ".*master"
+  if (branch_name =~ dev_pattern) {
+      return "dev"
+  } else if (branch_name =~ release_pattern) {
+      return "release"
+  } else if (branch_name =~ master_pattern) {
+      return "master"
+  } else if (branch_name =~ feature_pattern) {
+      return "feature"
+  } else if (branch_name =~ hotfix_pattern) {
+      return "hotfix"
+  } else {
+      return null;
+  }
+}
+
+def get_branch_deployment_environment(String branch_type) {
+  switch (branch_type) {
+  case "dev"
+    return "dev"
+  case "feature":
+    return "dev"
+  case "release":
+    return "staging"
+  case "hotfix":
+    return "staging"
+  case "prod":
+    return "prod"
+  default:
+    return null
+  }
+}
+
+
+def get_commit_author() {
+  script {
+    return sh(script: 'git log -1 --pretty=%cn ${GIT_COMMIT}', returnStdout: true).trim()
+  }
+}
+
+def get_commit_msg() {
+  script {
+    return sh(script : "git show -s --format=%B ${GIT_COMMIT}", returnStdout: true).trim()
+  }
+}

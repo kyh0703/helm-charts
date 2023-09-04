@@ -1,0 +1,38 @@
+app:
+  replicaCount: 2
+  port:
+    grpc: 80
+    metric: 8888
+
+resources:
+  limits:
+    cpu: 1000m
+    memory: 256Mi
+  requests:
+    cpu: 1000m
+    memory: 256Mi
+
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 80
+  targetMemoryUtilizationPercentage: 80
+
+dependancy:
+  secrets: false
+
+ingress:
+  enable: false
+  port: 6001
+
+podAntiAffinity: false
+
+log:
+  output: 'std'
+  level: debug
+
+image:
+  repository: 127.0.0.1/core
+  tag: 1.0.0
+  pullPolicy: Always
